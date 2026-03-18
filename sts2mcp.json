@@ -1,10 +1,10 @@
 {
 	"id": "sts2mcp",
-	"name": "sts2mcp",
-	"author": "john",
-	"description": "yep",
+	"name": "STS2 MCP",
+	"author": "John",
+	"description": "Model Context Protocol server for Slay the Spire 2",
 	"version": "1.0.0",
-	"has_pck": true,
+	"has_pck": false,
 	"has_dll": true,
 	"dependencies": [],
 	"affects_gameplay": true

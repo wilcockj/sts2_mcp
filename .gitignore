@@ -11,7 +11,22 @@ local.props
 *.userosscache
 *.sln.docstates
 .vscode/
+.idea/
 
 # Build results
 bin/
 obj/
+
+# .NET
+packages/
+*.nupkg
+*.userprefs
+*.usertasks
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Mod output (individual mods can be re-built)
+# If you want to commit built mods, remove this
+# mods/
