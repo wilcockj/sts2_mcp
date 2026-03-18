@@ -1,21 +1,50 @@
 <Project Sdk="Godot.NET.Sdk/4.5.1">
+  <Import Project="local.props" Condition="Exists('local.props')" />
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>sts2mcp</RootNamespace>
+    <ModName>sts2mcp</ModName>
+
+    <!-- Detect OS and set default paths -->
+    <Sts2Os Condition="'$(Sts2Os)' == '' AND EXISTS('/proc/version')">linux</Sts2Os>
+    <Sts2Os Condition="'$(Sts2Os)' == '' AND EXISTS('/System/Library/CoreServices/SystemVersion.plist')">macos</Sts2Os>
+    <Sts2Os Condition="'$(Sts2Os)' == ''">windows</Sts2Os>
+
+    <!-- Windows defaults -->
+    <STS2GamePath Condition="'$(STS2GamePath)' == '' AND '$(Sts2Os)' == 'windows'">C:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2</STS2GamePath>
+    <GameDataDir Condition="'$(GameDataDir)' == '' AND '$(Sts2Os)' == 'windows'">$(STS2GamePath)/data_sts2_windows_x86_64</GameDataDir>
+
+    <!-- Linux defaults (Steam) -->
+    <STS2GamePath Condition="'$(STS2GamePath)' == '' AND '$(Sts2Os)' == 'linux'">$(HOME)/.steam/steam/steamapps/common/Slay the Spire 2</STS2GamePath>
+    <GameDataDir Condition="'$(GameDataDir)' == '' AND '$(Sts2Os)' == 'linux'">$(STS2GamePath)/data_sts2_linux_x86_64</GameDataDir>
+
+    <!-- macOS defaults -->
+    <STS2GamePath Condition="'$(STS2GamePath)' == '' AND '$(Sts2Os)' == 'macos'">$(HOME)/Library/Application Support/Steam/steamapps/common/Slay the Spire 2</STS2GamePath>
+    <GameDataDir Condition="'$(GameDataDir)' == '' AND '$(Sts2Os)' == 'macos'">$(STS2GamePath)/SlayTheSpire2.app/Contents/Resources/data_sts2_macos_universal</GameDataDir>
+
+    <ModsOutputDir>$(STS2GamePath)/mods/$(ModName)</ModsOutputDir>
   </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="MegaCrit.Sts2.Core">
-      <HintPath>./sts2.dll</HintPath>
+      <HintPath>$(GameDataDir)/sts2.dll</HintPath>
     </Reference>
     <Reference Include="0Harmony">
-      <HintPath>./0Harmony.dll</HintPath>
+      <HintPath>$(GameDataDir)/0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="GodotSharp">
-      <HintPath>./GodotSharp.dll</HintPath>
+      <HintPath>$(GameDataDir)/GodotSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="Build">
+    <MakeDir Directories="$(ModsOutputDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModsOutputDir)" />
+    <Copy SourceFiles="$(ProjectDir)sts2mcp.json" DestinationFolder="$(ModsOutputDir)" />
+  </Target>
 </Project>

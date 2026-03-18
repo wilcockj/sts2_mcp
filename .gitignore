@@ -1,0 +1,17 @@
+# User-specific paths
+local.props
+
+# Godot build output
+.godot/
+
+# IDE
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+
+# Build results
+bin/
+obj/
