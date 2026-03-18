@@ -4,6 +4,9 @@ local.props
 # Godot build output
 .godot/
 
+# Godot generated UIDs
+*.uid
+
 # IDE
 .vs/
 *.sln
