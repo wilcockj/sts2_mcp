@@ -30,8 +30,25 @@ A Slay the Spire 2 mod that enables Model Context Protocol (MCP) server function
 
 ## Build
 
+### Windows
+```powershell
+.\build.ps1
+```
+
+### Linux/macOS
 ```bash
-dotnet build
+./build.sh
+```
+
+Add `-Run` to build and launch the game:
+```powershell
+# Windows
+.\build.ps1 -Run
+```
+
+```bash
+# Linux/macOS
+./build.sh -Run
 ```
 
 This will compile the mod and copy the output to:
@@ -39,14 +56,13 @@ This will compile the mod and copy the output to:
 
 ## Running the Mod
 
-1. Build the mod as shown above
+1. Build the mod using the script for your platform
 2. Launch Slay the Spire 2 through Steam
 3. The mod will be automatically loaded
 
-### Linux/MacOS Debug Launch
+### Linux Debug Launch
 
-To enable Harmony debugging on Linux:
-```bash
+To enable Harmony debugging on Linux, use the `-Run` flag or add to Steam launch options:
+```
 LD_PRELOAD=/lib/libgcc_s.so.1 HARMONY_DEBUG="true" %command% --remote-debug tcp://127.0.0.1:6007 --nomods
 ```
-Add this to your Steam launch options for the game.

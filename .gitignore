@@ -12,6 +12,7 @@ local.props
 *.sln.docstates
 .vscode/
 .idea/
+*.DotSettings.user
 
 # Build results
 bin/
