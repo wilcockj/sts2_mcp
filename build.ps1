@@ -26,6 +26,7 @@ if (Test-Path $LocalPropsPath) {
 }
 
 $GameExe = Join-Path $STS2GamePath "SlayTheSpire2.exe"
+$ModOutputDir = Join-Path $STS2GamePath "mods\$ModName"
 
 Write-Host "Building sts2mcp..." -ForegroundColor Cyan
 
@@ -43,6 +44,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Build succeeded." -ForegroundColor Green
+
+$BinDir = Join-Path $ProjectDir ".godot\mono\temp\bin\Debug"
+if (-not (Test-Path $ModOutputDir)) {
+    New-Item -ItemType Directory -Path $ModOutputDir -Force | Out-Null
+}
+
+Copy-Item (Join-Path $BinDir "$ModName.dll") $ModOutputDir -Force
+Copy-Item (Join-Path $ProjectDir "$ModName.json") $ModOutputDir -Force
+Write-Host "Files copied to mod directory." -ForegroundColor Green
 
 if ($Run) {
     if (-not (Test-Path $GameExe)) {

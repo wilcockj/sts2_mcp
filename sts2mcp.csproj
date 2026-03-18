@@ -5,7 +5,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
-    <RootNamespace>sts2mcp</RootNamespace>
+    <RootNamespace>STS2MCP</RootNamespace>
     <ModName>sts2mcp</ModName>
 
     <!-- Detect OS and set default paths -->
@@ -42,9 +42,5 @@
     </Reference>
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="Build">
-    <MakeDir Directories="$(ModsOutputDir)" />
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModsOutputDir)" />
-    <Copy SourceFiles="$(ProjectDir)sts2mcp.json" DestinationFolder="$(ModsOutputDir)" />
-  </Target>
+
 </Project>

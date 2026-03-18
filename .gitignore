@@ -6,7 +6,7 @@ local.props
 
 # IDE
 .vs/
-*.user
+*.sln
 *.suo
 *.userosscache
 *.sln.docstates

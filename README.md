@@ -5,7 +5,7 @@ A Slay the Spire 2 mod that enables Model Context Protocol (MCP) server function
 ## Requirements
 
 - [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- [Godot 4.x](https://godotengine.org/) (for intellisense/development)
+- [MegaDot](https://megadot.megacrit.com/) (Godot editor for mod development)
 - Slay the Spire 2 (installed via Steam)
 
 ## Setup
