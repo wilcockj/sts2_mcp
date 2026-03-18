@@ -1,0 +1,21 @@
+<Project Sdk="Godot.NET.Sdk/4.5.1">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>sts2mcp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MegaCrit.Sts2.Core">
+      <HintPath>./sts2.dll</HintPath>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>./0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GodotSharp">
+      <HintPath>./GodotSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

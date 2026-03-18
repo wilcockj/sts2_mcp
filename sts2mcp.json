@@ -1,0 +1,11 @@
+{
+	"id": "sts2mcp",
+	"name": "sts2mcp",
+	"author": "john",
+	"description": "yep",
+	"version": "1.0.0",
+	"has_pck": true,
+	"has_dll": true,
+	"dependencies": [],
+	"affects_gameplay": true
+}
