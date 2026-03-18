@@ -66,3 +66,16 @@ To enable Harmony debugging on Linux, use the `-Run` flag or add to Steam launch
 ```
 LD_PRELOAD=/lib/libgcc_s.so.1 HARMONY_DEBUG="true" %command% --remote-debug tcp://127.0.0.1:6007 --nomods
 ```
+
+## Creating a Release
+
+Push a version tag to trigger a GitHub Actions build and release:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This will create a GitHub release with zip files for each platform containing the DLL and JSON to drop into your mods folder.
+
+Note: The CI build requires Slay the Spire 2 to be installed at the default Steam path for each OS.
