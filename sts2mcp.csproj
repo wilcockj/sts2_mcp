@@ -19,7 +19,7 @@
 
     <!-- Linux defaults (Steam) -->
     <STS2GamePath Condition="'$(STS2GamePath)' == '' AND '$(Sts2Os)' == 'linux'">$(HOME)/.steam/steam/steamapps/common/Slay the Spire 2</STS2GamePath>
-    <GameDataDir Condition="'$(GameDataDir)' == '' AND '$(Sts2Os)' == 'linux'">$(STS2GamePath)/data_sts2_linux_x86_64</GameDataDir>
+    <GameDataDir Condition="'$(GameDataDir)' == '' AND '$(Sts2Os)' == 'linux'">$(STS2GamePath)/data_sts2_linuxbsd_x86_64</GameDataDir>
 
     <!-- macOS defaults -->
     <STS2GamePath Condition="'$(STS2GamePath)' == '' AND '$(Sts2Os)' == 'macos'">$(HOME)/Library/Application Support/Steam/steamapps/common/Slay the Spire 2</STS2GamePath>
