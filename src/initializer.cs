@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Models;
@@ -118,6 +119,7 @@ public static class MCPInitializer
 
 			if (path == "/health")
 			{
+				Player.toSer
 				SendText(response, "Player has 100 million billion health!");
 			}
 			else
@@ -129,6 +131,13 @@ public static class MCPInitializer
 		{
 			Log.Error($"[MCP] Server failed: {e}");
 		}
+	}
+	private static int GetPlayerHealth()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		var serializable_player = player.ToSerializable();
+		return serializable_player.CurrentHp;
 	}
 }
 
