@@ -94,6 +94,14 @@ public static class MCPInitializer
 		}
 	}
 
+	private static void SendText(HttpListenerResponse response, string text)
+	{
+		response.StatusCode = 200;
+		response.ContentType = "text/plain";
+		response.OutputStream.Write(Encoding.UTF8.GetBytes(text), 0, text.Length);
+		response.Close();
+	}
+
 	private static void HandleRequest(HttpListenerContext context)
 	{
 		try
@@ -108,7 +116,15 @@ public static class MCPInitializer
 
 			Log.Info($"[MCP] Request path: {path}");
 
-			response.Close();
+			if (path == "/health")
+			{
+				SendText(response, "Player has 100 million billion health!");
+			}
+			else
+			{
+				response.StatusCode = 404;
+				response.Close();
+			}
 		} catch (Exception e)
 		{
 			Log.Error($"[MCP] Server failed: {e}");
