@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -14,6 +15,7 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
+using MegaCrit.Sts2.Core.Saves.Runs;
 
 namespace STS2MCP;
 
@@ -165,6 +167,14 @@ public static class MCPInitializer
 		var player = LocalContext.GetMe(run);
 		var serializable_player = player.ToSerializable();
 		return serializable_player.CurrentHp;
+	}
+
+	private static List<SerializableCard> GetPlayerCards()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		var serializable_player = player.ToSerializable();
+		return serializable_player.Deck;
 	}
 }
 
