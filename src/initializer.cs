@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -143,7 +144,7 @@ public static class MCPInitializer
 
 			Log.Info($"[MCP] Request path: {path}");
 
-			if (path == "/health")
+			if (request.HttpMethod == "GET" && path == "/health")
 			{
 				var t = RunOnMainThread(() => GetPlayerHealth());
 				var health = t.GetAwaiter().GetResult();
