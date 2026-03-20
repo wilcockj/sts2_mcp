@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Logging;
@@ -45,6 +47,7 @@ public static class MCPInitializer
 	
 	private static HttpListener? _listener;
 	private static Thread? _serverThread;
+	private static readonly ConcurrentQueue<Action> _mainThreadQueue = new();
 	private static readonly int _port = 15527;
 
 	public static void Initialize()
@@ -55,6 +58,7 @@ public static class MCPInitializer
 		try
 		{
 			var tree = (SceneTree)Engine.GetMainLoop();
+			tree.Connect(SceneTree.SignalName.ProcessFrame, Callable.From(ProcessMainThreadQueue));
 
 			_listener = new HttpListener();
 			_listener.Prefixes.Add($"http://localhost:{_port}/");
@@ -78,6 +82,28 @@ public static class MCPInitializer
 		harmony.PatchAll(typeof(MCPInitializer).Assembly);
 	}
 
+	private static void ProcessMainThreadQueue()
+	{
+		int processed = 0;
+		while (_mainThreadQueue.TryDequeue(out var action) && processed < 100)
+		{
+			try { action(); }
+			catch (Exception e) { Log.Error($"[MCP] Main thread action error: {e}"); }
+			processed++;
+		}
+	}
+	
+	internal static Task<T> RunOnMainThread<T>(Func<T> func)
+	{
+		var tcs = new TaskCompletionSource<T>();
+		_mainThreadQueue.Enqueue(() =>
+		{
+			try { tcs.SetResult(func()); }
+			catch (Exception ex) { tcs.SetException(ex); }
+		});
+		return tcs.Task;
+	}
+	
 	private static void ServerLoop()
 	{
 		while (_listener.IsListening)
@@ -119,6 +145,9 @@ public static class MCPInitializer
 			if (path == "/health")
 			{
 				SendText(response, "Player has 100 million billion health!");
+				Task t = RunOnMainThread();
+				var health = t.GetAwaiter().GetResult();
+				
 			}
 			else
 			{
