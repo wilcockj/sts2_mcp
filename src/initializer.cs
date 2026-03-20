@@ -106,14 +106,9 @@ public static class MCPInitializer
 
 			string path = request.Url?.AbsolutePath ?? "/";
 
-			if (path == "/ping")
-			{
-				response.StatusCode = 200;
-				response.ContentType = "text/plain";
-				response.OutputStream.Write(Encoding.ASCII.GetBytes("pong"));
-				response.Close();
-			}
+			Log.Info($"[MCP] Request path: {path}");
 
+			response.Close();
 		} catch (Exception e)
 		{
 			Log.Error($"[MCP] Server failed: {e}");
@@ -125,7 +120,7 @@ public static class MCPInitializer
 public static class PatchPopulateStartingDeck
 {
 	[HarmonyPostfix]
-	public static void Postfix(Player instance)
+	public static void Postfix(Player __instance)
 	{
 		Log.Warn("[MCP] Deck populated!");
 	}
