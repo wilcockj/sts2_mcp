@@ -21,13 +21,17 @@ set -e
 echo "Building STS2 MCP..."
 
 if [ -z "$STS2GamePath" ]; then
-  STS2GamePath="$HOME/.steam/steam/steamapps/common/Slay the Spire 2"
+  sts2_location=$(./find_game.sh)
+  if [ $? -ne 0 ]; then
+      STS2GamePath="$HOME/.steam/steam/steamapps/common/Slay the Spire 2"
+  else
+      STS2GamePath=$sts2_location
+  fi
 fi
 
 if [ -z "$GameDataDir" ]; then
   GameDataDir="$STS2GamePath/data_sts2_linuxbsd_x86_64"
 fi
-echo $GameDataDir
 
 if [ -f "local.props" ]; then
   echo "Using local.props for configuration"
