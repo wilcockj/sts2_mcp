@@ -20,6 +20,7 @@ set -e
 
 echo "Building STS2 MCP..."
 
+export STS2GamePath=""
 if [ -z "$STS2GamePath" ]; then
   sts2_location=$(./find_game.sh)
   if [ $? -ne 0 ]; then
@@ -28,6 +29,8 @@ if [ -z "$STS2GamePath" ]; then
       STS2GamePath=$sts2_location
   fi
 fi
+echo $STS2GamePath
+export STS2GamePath=$STS2GamePath
 
 if [ -z "$GameDataDir" ]; then
   GameDataDir="$STS2GamePath/data_sts2_linuxbsd_x86_64"
@@ -39,6 +42,7 @@ fi
 
 dotnet build -p:Sts2Os=linux -p:STS2GamePath="$STS2GamePath" -p:GameDataDir="$GameDataDir"
 
+cp .godot/mono/temp/bin/Debug/sts2mcp.dll "$STS2GamePath/mods/sts2mcp"
 echo "Build complete. Mod copied to: $STS2GamePath/mods/sts2mcp/"
 
 if [ -n "$RUN_FLAG" ]; then

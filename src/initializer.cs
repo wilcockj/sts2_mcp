@@ -14,7 +14,6 @@ using MegaCrit.Sts2.Core.Runs;
 
 namespace STS2MCP;
 
-[ModInitializer("Entry")]
 public static class MCPEntry
 {
 	[DllImport("libdl.so.2")]
@@ -50,6 +49,7 @@ public static class MCPInitializer
 
 	public static void Initialize()
 	{
+		MCPEntry.Entry();
 		Log.Warn("[MCP] Mod initialized successfully!");
 
 		try
