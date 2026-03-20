@@ -145,11 +145,9 @@ public static class MCPInitializer
 
 			if (path == "/health")
 			{
-				Player.toSer
-				SendText(response, "Player has 100 million billion health!");
-				Task t = RunOnMainThread();
+				var t = RunOnMainThread(() => GetPlayerHealth());
 				var health = t.GetAwaiter().GetResult();
-				
+				SendText(response, $"Players health is {health}");
 			}
 			else
 			{
