@@ -45,45 +45,8 @@ public static class MCPInitializer
 	{
 		Log.Warn("[MCP] Mod initialized successfully!");
 		
-		CreateHelloUI();
-		
 		var harmony = new Harmony(HarmonyId);
 		harmony.PatchAll(typeof(MCPInitializer).Assembly);
-	}
-	
-	private static void CreateHelloUI()
-	{
-		var mainLoop = Engine.GetMainLoop();
-		if (mainLoop is not SceneTree sceneTree) return;
-		
-		var canvasLayer = new CanvasLayer();
-		canvasLayer.Layer = 9999;
-		
-		var panel = new Panel();
-		panel.SetAnchorsPreset(Control.LayoutPreset.Center);
-		panel.OffsetLeft = -250;
-		panel.OffsetRight = 250;
-		panel.OffsetTop = -50;
-		panel.OffsetBottom = 50;
-		panel.SelfModulate = new Color(0, 0, 0, 0.8f);
-		
-		var label = new Label();
-		label.SetAnchorsPreset(Control.LayoutPreset.Center);
-		label.OffsetLeft = -250;
-		label.OffsetRight = 250;
-		label.OffsetTop = -50;
-		label.OffsetBottom = 50;
-		label.Text = "Hello From Mod";
-		label.HorizontalAlignment = HorizontalAlignment.Center;
-		label.VerticalAlignment = VerticalAlignment.Center;
-		label.AddThemeFontSizeOverride("font_size", 48);
-		label.Modulate = new Color(1f, 1f, 0f);
-		
-		canvasLayer.AddChild(panel);
-		canvasLayer.AddChild(label);
-		sceneTree.Root.AddChild(canvasLayer);
-		
-		Log.Warn("[MCP] Hello UI created!");
 	}
 }
 
@@ -91,7 +54,7 @@ public static class MCPInitializer
 public static class PatchPopulateStartingDeck
 {
 	[HarmonyPostfix]
-	public static void Postfix(Player __instance)
+	public static void Postfix(Player instance)
 	{
 		Log.Warn("[MCP] Deck populated!");
 	}
