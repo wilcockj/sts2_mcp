@@ -223,6 +223,8 @@ public static class MCPInitializer
 									Health = GetPlayerHealth(),
 									Cards = GetPlayerCards(),
 									Gold = GetPlayerGold(),
+									Energy = GetPlayerEnergy(),
+									Relics = GetPlayerRelics(),
 								}
 							);
 
@@ -255,12 +257,38 @@ public static class MCPInitializer
 		}
 	}
 
-	private static int GetPlayerHealth()
+	private static object GetPlayerHealth()
 	{
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var player = LocalContext.GetMe(run);
-		var serializablePlayer = player!.ToSerializable();
-		return serializablePlayer.CurrentHp;
+		return new
+		{
+			CurrentHP = player.Creature.CurrentHp,
+			MaxHP = player.Creature.MaxHp,
+			CurrentBlock = player.Creature.Block,
+		};
+	}
+	
+	private static object GetPlayerRelics()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		return new
+		{
+			Relics = player.ToSerializable().Relics,
+		};
+	}
+
+	private static object GetPlayerEnergy()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+
+		return new
+		{
+			CurrentEnergy = player.PlayerCombatState.Energy,
+			MaxEnergy = player.PlayerCombatState.MaxEnergy,
+		};
 	}
 	
 	private static PlayerCardsData GetPlayerCards()
