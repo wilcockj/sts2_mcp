@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -5,6 +7,7 @@ using System.Net;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -16,6 +19,7 @@ using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
+using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
 namespace STS2MCP;
@@ -110,7 +114,7 @@ public static class MCPInitializer
 	
 	private static void ServerLoop()
 	{
-		while (_listener.IsListening)
+		while (_listener!.IsListening)
 		{
 			try
 			{
@@ -124,14 +128,6 @@ public static class MCPInitializer
 		}
 	}
 
-	private static void SendText(HttpListenerResponse response, string text)
-	{
-		response.StatusCode = 200;
-		response.ContentType = "text/plain";
-		response.OutputStream.Write(Encoding.UTF8.GetBytes(text), 0, text.Length);
-		response.Close();
-	}
-
 	private static void HandleRequest(HttpListenerContext context)
 	{
 		try
@@ -142,15 +138,20 @@ public static class MCPInitializer
 			response.Headers.Add("Access-Control-Allow-Methods", "GET, POST");
 			response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
-			string path = request.Url?.AbsolutePath ?? "/";
+			string path = request.Url?.AbsolutePath.TrimEnd('/') ?? "/";
+			string method = request.HttpMethod;
 
-			Log.Info($"[MCP] Request path: {path}");
+			Log.Info($"[MCP API] {method} {path}");
 			
-			if (request.HttpMethod == "GET" && path == "/health")
+			string[] segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+			
+			if (segments.Length == 0)
 			{
-				var t = RunOnMainThread(() => GetPlayerHealth());
-				var health = t.GetAwaiter().GetResult();
-				SendText(response, $"Players health is {health}");
+				SendJson(response, new { message = "Slay the Spire 2 API v1" });
+			}
+			else if (segments[0].Equals("api", StringComparison.OrdinalIgnoreCase))
+			{
+				HandleApiRequest(segments, method, response);
 			}
 			else
 			{
@@ -159,32 +160,110 @@ public static class MCPInitializer
 			}
 		} catch (Exception e)
 		{
-			Log.Error($"[MCP] Server failed: {e}");
+			Log.Error($"[MCP] HTTP Server failed: {e}");
 		}
 	}
+	
+	private static void SendJson(HttpListenerResponse response, object obj)
+	{
+		response.ContentType = "application/json";
+		// Serialize with indentation
+		string json = JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
+		byte[] buffer = System.Text.Encoding.UTF8.GetBytes(json);
+		response.ContentLength64 = buffer.Length;
+		response.OutputStream.Write(buffer, 0, buffer.Length);
+		response.OutputStream.Close();
+	}
+
+	private static void HandleApiRequest(string[] segments, string method, HttpListenerResponse response)
+	{
+		// Expect at least: /api/v1/...
+		if (segments.Length < 2)
+		{
+			response.StatusCode = 404;
+			response.Close();
+			return;
+		}
+
+		string version = segments[1];
+		if (!version.Equals("v1", StringComparison.OrdinalIgnoreCase))
+		{
+			response.StatusCode = 404;
+			response.Close();
+			return;
+		}
+		
+		// Handle resources after /api/v1/
+		if (segments.Length >= 3)
+		{
+			string resource = segments[2].ToLower();
+
+			switch (resource)
+			{
+				case "player":
+					if (method == "GET")
+					{
+						try
+						{
+							// Gather player info
+							var playerData = RunOnMainThread(() => new
+								{
+									Health = GetPlayerHealth(),
+									Cards = GetPlayerCards(),
+									Gold = GetPlayerGold(),
+								}
+							);
+
+							SendJson(response, playerData);
+						}
+						catch (Exception e)
+						{
+							Log.Error($"[MCP] Failed to get player: {e}");
+							
+							SendJson(response, new { message = "Player data is not available yet" });
+						}
+					}
+					else
+					{
+						response.StatusCode = 405; // Method not allowed
+						response.Close();
+					}
+					break;
+				
+				default:
+					response.StatusCode = 404;
+					response.Close();
+					break;
+			}
+		}
+		else
+		{
+			response.StatusCode = 404;
+			response.Close();
+		}
+	}
+
 	private static int GetPlayerHealth()
 	{
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var player = LocalContext.GetMe(run);
-		var serializable_player = player.ToSerializable();
-		return serializable_player.CurrentHp;
+		var serializablePlayer = player!.ToSerializable();
+		return serializablePlayer.CurrentHp;
 	}
 
 	private static List<SerializableCard> GetPlayerCards()
 	{
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var player = LocalContext.GetMe(run);
-		var serializable_player = player.ToSerializable();
-		return serializable_player.Deck;
+		var serializablePlayer = player!.ToSerializable();
+		return serializablePlayer.Deck;
 	}
-}
 
-[HarmonyPatch(typeof(Player), "PopulateStartingDeck")]
-public static class PatchPopulateStartingDeck
-{
-	[HarmonyPostfix]
-	public static void Postfix(Player __instance)
+	private static int GetPlayerGold()
 	{
-		Log.Warn("[MCP] Deck populated!");
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		var serializablePlayer = player!.ToSerializable();
+		return serializablePlayer.Gold;
 	}
 }
