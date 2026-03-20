@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -13,12 +14,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Entities.Players;
+using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
+using MegaCrit.Sts2.Core.MonsterMoves.Intents;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves;
@@ -233,7 +237,6 @@ public static class MCPInitializer
 						catch (Exception e)
 						{
 							Log.Error($"[MCP] Failed to get player: {e}");
-							
 							SendJson(response, new { message = "Player data is not available yet" });
 						}
 					}
@@ -241,6 +244,22 @@ public static class MCPInitializer
 					{
 						response.StatusCode = 405; // Method not allowed
 						response.Close();
+					}
+					break;
+				
+				case "enemies":
+					if (method == "GET")
+					{
+						try
+						{
+							var enemyData = RunOnMainThread(() => GetEnemyInfo());
+							
+							SendJson(response, enemyData);
+						}
+						catch (Exception e) {
+							Log.Error($"[MCP] Failed to get enemies: {e}");
+							SendJson(response, new { message = "Enemy data is not available yet" });
+						}
 					}
 					break;
 				
@@ -255,6 +274,58 @@ public static class MCPInitializer
 			response.StatusCode = 404;
 			response.Close();
 		}
+	}
+
+	private static object GetEnemyInfo()
+	{
+		var combatState = CombatManager.Instance.DebugOnlyGetState();
+		var enemiesData = new List<object>();
+
+		if (combatState?.Enemies == null || combatState.Enemies.Count == 0)
+			return enemiesData; // empty list if no enemies
+
+		foreach (var enemy in combatState.Enemies)
+		{
+			// Gather all intents for this enemy
+			var intents = new List<object>();
+			var powers = new List<object>();
+			if (enemy.Monster?.NextMove?.Intents != null)
+			{
+				foreach (var intent in enemy.Monster.NextMove.Intents)
+				{
+					intents.Add(new
+					{
+						Label = intent
+							.GetIntentLabel(enemy.CombatState.PlayerCreatures, enemy)
+							.GetFormattedText(),
+						Type = intent.IntentType.ToString(),
+					});
+				}
+				
+				foreach (var power in enemy.Powers)
+				{
+					powers.Add(new
+					{
+						Type = power.Type.ToString(),
+						Amount = power.Amount,
+						Desc = LocManager.Instance.GetTable(power.Description.LocTable).GetRawText(power.Description.LocEntryKey),
+					});
+				}
+			}
+
+			enemiesData.Add(new
+			{
+				Name = enemy.Name,
+				CurrentHP = enemy.CurrentHp,
+				MaxHp = enemy.MaxHp,
+				CurrentBlock = enemy.Block,
+				IsStunned = enemy.IsStunned,
+				Intents = intents,
+				Powers = powers,
+			});
+		}
+
+		return enemiesData;
 	}
 
 	private static object GetPlayerHealth()
