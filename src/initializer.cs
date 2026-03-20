@@ -143,7 +143,7 @@ public static class MCPInitializer
 			string path = request.Url?.AbsolutePath ?? "/";
 
 			Log.Info($"[MCP] Request path: {path}");
-
+			
 			if (request.HttpMethod == "GET" && path == "/health")
 			{
 				var t = RunOnMainThread(() => GetPlayerHealth());

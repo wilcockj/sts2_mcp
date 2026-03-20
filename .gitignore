@@ -31,6 +31,10 @@ packages/
 .DS_Store
 Thumbs.db
 
+# PYTHONNNNNN
+.venv                                                                                               
+.python-version
+
 # Mod output (individual mods can be re-built)
 # If you want to commit built mods, remove this
 # mods/
