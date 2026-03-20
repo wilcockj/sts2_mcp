@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Runtime.InteropServices;
@@ -13,6 +14,7 @@ using System.Threading.Tasks;
 using Godot;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Context;
+using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Models;
@@ -23,6 +25,16 @@ using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
 namespace STS2MCP;
+
+public class PlayerCardsData
+{
+	public List<SerializableCard> Draw { get; set; } = new();
+	public List<SerializableCard> Hand { get; set; } = new();
+	public List<SerializableCard> Discard { get; set; } = new();
+	public List<SerializableCard> Exhaust { get; set; } = new();
+	public List<SerializableCard> Play { get; set; } = new();
+	public List<SerializableCard> Deck { get; set; } = new();
+}
 
 public static class MCPEntry
 {
@@ -250,13 +262,47 @@ public static class MCPInitializer
 		var serializablePlayer = player!.ToSerializable();
 		return serializablePlayer.CurrentHp;
 	}
-
-	private static List<SerializableCard> GetPlayerCards()
+	
+	private static PlayerCardsData GetPlayerCards()
 	{
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var player = LocalContext.GetMe(run);
-		var serializablePlayer = player!.ToSerializable();
-		return serializablePlayer.Deck;
+		
+		var cardsData = new PlayerCardsData();
+		
+		foreach (CardPile pile in player.Piles)
+		{
+			if (pile?.Cards == null) continue;
+
+			foreach (CardModel model in pile.Cards)
+			{
+				var serializableCard = model.ToSerializable();
+
+				switch (pile.Type)
+				{
+					case PileType.Hand:
+						cardsData.Hand.Add(serializableCard);
+						break;
+					case PileType.Draw:
+						cardsData.Draw.Add(serializableCard);
+						break;
+					case PileType.Discard:
+						cardsData.Discard.Add(serializableCard);
+						break;
+					case PileType.Exhaust:
+						cardsData.Exhaust.Add(serializableCard);
+						break;
+					case PileType.Play:
+						cardsData.Play.Add(serializableCard);
+						break;
+					case PileType.Deck:
+						cardsData.Deck.Add(serializableCard);
+						break;
+				}
+			}
+		}
+		
+		return cardsData;
 	}
 
 	private static int GetPlayerGold()
