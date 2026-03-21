@@ -125,7 +125,23 @@ public static partial class Mod
 						response.Close();
 					}
 					break;
-				
+				case "end_turn":
+					if (method == "GET")
+					{
+						try
+						{
+							var end_turn_result = RunOnMainThread(() => TryEndTurn());
+							SendJson(response, end_turn_result);
+						}
+						catch (Exception e)
+						{
+							Log.Error($"[MCP] Failed to end turn: {e}");
+							SendJson(response, new { message = "Cannot end turn" });
+						}
+						
+					}
+
+					break;
 				case "player":
 					if (method == "GET")
 					{

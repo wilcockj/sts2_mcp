@@ -19,7 +19,7 @@ public static partial class Mod
 		var combatState = CombatManager.Instance.DebugOnlyGetState();
 		var enemiesData = new List<object>();
 
-		if (combatState?.Enemies == null || combatState.Enemies.Count == 0)
+		if (CombatManager.Instance.IsOverOrEnding || combatState?.Enemies == null || combatState.Enemies.Count == 0)
 			return enemiesData; // empty list if no enemies
 
 		var targetIndex = 0;
@@ -66,6 +66,22 @@ public static partial class Mod
 		}
 
 		return enemiesData;
+	}
+
+	private static object TryEndTurn()
+	{
+		if (CombatManager.Instance.IsOverOrEnding)
+		{
+			return new { Success = false, Message = "tried to end turn after combat" };
+		}
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		if (!CombatManager.Instance.AllPlayersReadyToEndTurn())
+		{
+			return new { Success = false, Message = "was not ready to end turn" };
+		}
+		CombatManager.Instance.SetReadyToEndTurn(player,false);
+		return new { Success = true, Message = "successfully signalled end of turn" };
 	}
 
 	private static object PlayCardAction(PlayCardRequest pcr)

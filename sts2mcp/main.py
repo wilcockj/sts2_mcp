@@ -64,6 +64,16 @@ def sts2_get_map():
         return f"Failed to get map: {e}"
         
 @mcp.tool
+def end_turn():
+    """Ends the player's current turn in combat"""
+    try:
+        response = requests.get(f"http://localhost:{PORT}/api/v1/end_turn", timeout=2)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to end turn: {e}"
+
+@mcp.tool
 def get_to_character_select():
     """Gets you to the character select screen so you can
     choose your chracter and then start the game"""
