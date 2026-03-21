@@ -662,7 +662,6 @@ public static class MCPInitializer
 					Title = model.Title,
 					EnergyCost = model.EnergyCost.CostsX ? "X" : model.EnergyCost.Canonical.ToString(),
 				};
-				Log.Info($"[MCP] [{pile.Type.ToString()}] {cardData.Title} {cardData.EnergyCost}: {cardData.Description}");
 
 				var key = pile.Type.ToString();
 				if (!cardsData.ContainsKey(key))
