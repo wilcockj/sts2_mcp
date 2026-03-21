@@ -66,3 +66,15 @@ To enable Harmony debugging on Linux, use the `-Run` flag or add to Steam launch
 ```
 LD_PRELOAD=/lib/libgcc_s.so.1 HARMONY_DEBUG="true" %command% --remote-debug tcp://127.0.0.1:6007 --nomods
 ```
+
+### TODO 
+
+- Get optimal paths and tell the agent which ones they can pick, might need to change path based on 
+  how the fights go. For example if you lost a lot of health may need to go for a campfire early
+  need to search from the current spot up to the boss and give a best aggressive and best safe route,
+  maybe do this every time you enter a room
+- add getting the cards that you currently hold.
+- add getting current fight state
+- add control for starting the run and then selecting a character
+- add control for restarting a run
+- control to get what is in the shop currently / choose selection

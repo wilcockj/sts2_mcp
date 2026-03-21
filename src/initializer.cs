@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,6 +13,7 @@ using HarmonyLib;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Entities.Players;
+using MegaCrit.Sts2.Core.Map;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.Random;
@@ -152,6 +154,12 @@ public static class MCPInitializer
 				var health = t.GetAwaiter().GetResult();
 				SendText(response, $"Players health is {health}");
 			}
+			else if (request.HttpMethod == "GET" && path == "/map")
+			{
+				var t = RunOnMainThread(() => GetCurrentActMap());		
+				var map_text = t.GetAwaiter().GetResult();
+				SendText(response, "TODO: Map not implemented");
+			}
 			else
 			{
 				response.StatusCode = 404;
@@ -177,6 +185,30 @@ public static class MCPInitializer
 		var serializable_player = player.ToSerializable();
 		return serializable_player.Deck;
 	}
+
+	private static List<MapPoint> GetCurrentPathsToBoss(MapPoint current_point,List<MapPoint> current_path, List<List<MapPoint>> every_path)
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var current_coord = run.CurrentMapCoord;
+		MapPoint[] map_points = run.Map.GetAllMapPoints().ToArray<MapPoint>();
+	}
+	private static MapPoint[] GetCurrentActMap()
+	{	
+		var run = RunManager.Instance.DebugOnlyGetState();
+		MapPoint[] map_points = run.Map.GetAllMapPoints().ToArray<MapPoint>();
+		if (map_points.Length == 0)
+		{
+			Log.Info("[MCP] No map points found!");
+		}
+		foreach(MapPoint point in map_points)
+		{ 
+			Log.Info(point.ToString());
+		}
+
+		Log.Info($"[MCP] got map with {map_points.Length} points");
+		return map_points;
+	}
+	
 }
 
 [HarmonyPatch(typeof(Player), "PopulateStartingDeck")]
