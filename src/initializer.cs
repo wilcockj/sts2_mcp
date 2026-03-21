@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Net;
-using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -79,7 +78,7 @@ public static class MCPInitializer
 	public static void Initialize()
 	{
 		MCPEntry.Entry();
-		Log.Warn("[MCP] Mod initialized successfully!");
+		Log.Warn("[MCP] Mod entry finished successfully!");
 
 		try
 		{
@@ -175,7 +174,7 @@ public static class MCPInitializer
 			{
 				var t = RunOnMainThread(() => GetCurrentActMap());		
 				var map_text = t.GetAwaiter().GetResult();
-				SendText(response, "TODO: Map not implemented");
+				SendJson(response, new {message = "TODO: Map not implemented"});
 			}
 			else
 			{
@@ -375,6 +374,7 @@ public static class MCPInitializer
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var current_coord = run.CurrentMapCoord;
 		MapPoint[] map_points = run.Map.GetAllMapPoints().ToArray<MapPoint>();
+		return map_points.ToList();
 	}
 	private static MapPoint[] GetCurrentActMap()
 	{	
@@ -393,7 +393,6 @@ public static class MCPInitializer
 		return map_points;
 	}
 	
-}
 	
 	private static PlayerCardsData GetPlayerCards()
 	{
