@@ -2,6 +2,7 @@
 using System.Net;
 using System.Text.Json;
 using System.Threading;
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Logging;
 
 namespace STS2MCP;
@@ -134,6 +135,8 @@ public static partial class Mod
 				case "enemies":
 					if (method == "GET")
 					{
+						if (!CombatManager.Instance.IsInProgress)
+							SendJson(response, new { message = "Enemy data is not available yet" });
 						try
 						{
 							var enemyData = RunOnMainThread(GetEnemyInfo).GetAwaiter().GetResult();
