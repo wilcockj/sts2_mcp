@@ -14,6 +14,11 @@ public class PlayCardRequest
 	public int? target_index { get; set; }
 }
 
+public class SelectCharacterRequest
+{
+	public string character { get; set; } = "";
+}
+
 public static partial class Mod
 {
     private static void ServerLoop()
@@ -204,7 +209,17 @@ public static partial class Mod
 						}
 					}
 					break;
-				case "enter_char_select":
+				case "select_character":
+				if (method == "POST")
+				{
+					using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
+					var body = reader.ReadToEnd();
+					var data = JsonSerializer.Deserialize<SelectCharacterRequest>(body);
+					var result = RunOnMainThread(() => SelectAndStartCharacter(data!.character)).GetAwaiter().GetResult();
+					SendJson(response, result);
+				}
+				break;
+			case "enter_char_select":
 					if (method == "GET")
 					{
 						try

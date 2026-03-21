@@ -77,6 +77,18 @@ def end_turn():
         return f"Failed to end turn: {e}"
 
 @mcp.tool
+def select_character(character: str):
+    """Select a character and start the game. Must be on the character select screen first.
+    Pass the character ID (e.g. 'IRONCLAD'). Returns available characters if the ID is not found."""
+    try:
+        response = requests.post(f"http://localhost:{PORT}/api/v1/select_character",
+                                 timeout=2, json={"character": character})
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to select character: {e}"
+
+@mcp.tool
 def get_to_character_select():
     """Gets you to the character select screen so you can
     choose your chracter and then start the game"""
