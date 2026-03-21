@@ -113,9 +113,10 @@ public static partial class Mod
 							Log.Info($"[MCP] Body: {body}");
 							var data = JsonSerializer.Deserialize<PlayCardRequest>(body);
 							Log.Info($"[MCP] Sending playCard request: card={data.card_index} enemy={data.target_index?.ToString() ?? "none"}");
+							var play_card_result = RunOnMainThread(() => PlayCardAction(data)).GetAwaiter().GetResult();
+							
+							SendJson(response, play_card_result);
 						}
-
-						response.Close();
 					}
 					else
 					{
