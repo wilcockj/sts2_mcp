@@ -46,4 +46,12 @@ def sts2_get_map():
         return f"Failed to get map: {e}"
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=8005)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stdio", action="store_true", help="Run as stdio instead of HTTP server")
+    args = parser.parse_args()
+
+    if args.stdio:
+        mcp.run()
+    else:
+        mcp.run(transport="http", host="0.0.0.0", port=8005)

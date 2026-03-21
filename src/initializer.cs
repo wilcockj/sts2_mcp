@@ -486,16 +486,33 @@ public static class MCPInitializer
 
 	private static object GetCurrentActMap()
 	{
-		ComputePaths();
-		if (_cachedSafestPath == null || _cachedAggressivePath == null)
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var startPoint = run.CurrentMapPoint ?? run.Map?.StartingMapPoint;
+		if (startPoint == null)
+		{
+			Log.Info("[MCP] No start point in map search");
 			return new { Error = "No map available" };
+		}
 
+		var currentPath = new List<MapPoint>();
+		var allPaths = new List<List<MapPoint>>();
+		FindAllPathsToBoss(startPoint, currentPath, allPaths);
+
+		if (allPaths.Count == 0)
+			return new { Error = "No paths found to boss" };
+
+		var safestPath = allPaths.OrderByDescending(ScoreSafety).First();
+		var aggressivePath = allPaths.OrderByDescending(ScoreAggressive).First();
+
+		// Update cache for highlighting
+		_cachedSafestPath = safestPath;
+		_cachedAggressivePath = aggressivePath;
 		RequestHighlightOnMapOpen();
 
 		return new
 		{
-			SafestPath = FormatPath(_cachedSafestPath.Skip(1).ToList(), "Safest (fewest fights)"),
-			MostAggressivePath = FormatPath(_cachedAggressivePath.Skip(1).ToList(), "Most aggressive (max rewards)"),
+			SafestPath = FormatPath(safestPath.Skip(1).ToList(), "Safest (fewest fights)"),
+			MostAggressivePath = FormatPath(aggressivePath.Skip(1).ToList(), "Most aggressive (max rewards)"),
 		};
 	}
 
