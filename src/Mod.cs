@@ -28,6 +28,8 @@ using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.MonsterMoves.Intents;
+using MegaCrit.Sts2.Core.Nodes;
+using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
 
@@ -143,5 +145,24 @@ public static partial class Mod
 			catch (Exception ex) { tcs.SetException(ex); }
 		});
 		return tcs.Task;
+	}
+	
+	private static object StartStandardGame()
+	{
+		if (NGame.Instance.MainMenu == null)
+		{
+			return new {message = "not on main menu"};
+		}
+		// we are on the main menu
+		// select the game screen
+		var submenu = NGame.Instance.MainMenu.OpenSingleplayerSubmenu();
+		var method = typeof(NSingleplayerSubmenu).GetMethod(
+			"OpenCharacterSelect",
+			BindingFlags.NonPublic | BindingFlags.Instance);
+
+		method?.Invoke(submenu, new object?[] { null });
+	
+		Log.Info("got to character select screen");
+		return new { message = "opened single player submenu" };
 	}
 }

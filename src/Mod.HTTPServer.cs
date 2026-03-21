@@ -160,7 +160,22 @@ public static partial class Mod
 						}
 					}
 					break;
-				
+				case "enter_char_select":
+					if (method == "GET")
+					{
+						try
+						{
+							
+							var t = RunOnMainThread(() => StartStandardGame());
+							var standard_game = t.GetAwaiter().GetResult();
+							SendJson(response, new { message = "Got to character select for standard game"});
+						}
+						catch (Exception e) {
+							Log.Error($"[MCP] Failed to get character select screen: {e}");
+							SendJson(response, new { message = "Character screen could not be navigated to" });
+						}
+					}
+					break;
 				default:
 					response.StatusCode = 404;
 					response.Close();
