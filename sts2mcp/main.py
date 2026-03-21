@@ -7,7 +7,10 @@ mcp = FastMCP("STS2 MCP")
 
 @mcp.tool
 def play_card(card_index: int, target_index: int | None = None):
-    """Play a card."""
+    """
+    Play a card based on its card_index (0 indexed).
+    If the card affects an enemy (damage, debuf, etc.) then you must set a target_index (also 0 indexed).
+    """
     url = f"http://localhost:{PORT}/api/v1/playcard"
     try:
         payload = {
