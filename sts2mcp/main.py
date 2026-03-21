@@ -33,10 +33,17 @@ def health() -> str:
     return response.text
     
 @mcp.tool
-def sts2_get_map() -> str:
-    """gets the players map"""
-    response = requests.get(f"http://localhost:{PORT}/map")
-    return response.text
+def sts2_get_map():
+    """Gets the current act map and recommends two paths to the boss:
+    - SafestPath: fewest fights (avoids Monster, Elite, Unknown nodes)
+    - MostAggressivePath: maximizes rewards (favors Elite, Treasure, Monster, Unknown nodes)
+    Returns the node sequence for each recommended path."""
+    try:
+        response = requests.get(f"http://localhost:{PORT}/api/v1/map", timeout=2)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to get map: {e}"
 
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=8005)

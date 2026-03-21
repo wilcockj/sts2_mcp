@@ -11,8 +11,11 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Collections;
+using System.Reflection;
 using System.Threading.Tasks;
 using Godot;
+using MegaCrit.Sts2.Core.Nodes.Screens.Map;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Context;
@@ -75,6 +78,17 @@ public static class MCPInitializer
 	private static readonly ConcurrentQueue<Action> _mainThreadQueue = new();
 	private static readonly int _port = 15527;
 
+	// Highlighting
+	private static FieldInfo? _pathsField;
+	private static bool _reflectionInitialized;
+	private static bool _pendingHighlight;
+	private static readonly Dictionary<TextureRect, (Color color, Vector2 scale)> _originalTickProps = new();
+	private static List<MapPoint>? _cachedSafestPath;
+	private static List<MapPoint>? _cachedAggressivePath;
+	private static readonly Color SafestColor = new Color(0.2f, 1f, 0.2f);
+	private static readonly Color AggressiveColor = new Color(1f, 0.5f, 0.1f);
+	private static readonly Color SharedColor = new Color(0.6f, 0.2f, 1f);
+
 	public static void Initialize()
 	{
 		MCPEntry.Entry();
@@ -105,6 +119,10 @@ public static class MCPInitializer
 		
 		var harmony = new Harmony(HarmonyId);
 		harmony.PatchAll(typeof(MCPInitializer).Assembly);
+
+		InitializeReflection();
+		RunManager.Instance.ActEntered += delegate { UpdateAndRequestHighlight(); };
+		RunManager.Instance.RoomEntered += delegate { UpdateAndRequestHighlight(); };
 	}
 
 	private static void ProcessMainThreadQueue()
@@ -172,9 +190,7 @@ public static class MCPInitializer
 			}
 			else if (request.HttpMethod == "GET" && path == "/map")
 			{
-				var t = RunOnMainThread(() => GetCurrentActMap());		
-				var map_text = t.GetAwaiter().GetResult();
-				SendJson(response, new {message = "TODO: Map not implemented"});
+
 			}
 			else
 			{
@@ -266,6 +282,21 @@ public static class MCPInitializer
 						catch (Exception e) {
 							Log.Error($"[MCP] Failed to get enemies: {e}");
 							SendJson(response, new { message = "Enemy data is not available yet" });
+						}
+					}
+					break;
+				case "map":
+					if (method == "GET")
+					{
+						try
+						{
+							var t = RunOnMainThread(() => GetCurrentActMap());
+							var mapData = t.GetAwaiter().GetResult();
+							SendJson(response, mapData);
+						}
+						catch (Exception e) {
+							Log.Error($"[MCP] Failed to get map paths: {e}");
+							SendJson(response, new { message = "Map data is not available yet" });
 						}
 					}
 					break;
@@ -369,28 +400,246 @@ public static class MCPInitializer
 		};
 	}
 
-	private static List<MapPoint> GetCurrentPathsToBoss(MapPoint current_point,List<MapPoint> current_path, List<List<MapPoint>> every_path)
+	/// <summary>
+	/// Recursive DFS helper to find all paths from current point to the Boss.
+	/// </summary>
+	/// <param name="current">Current map point.</param>
+	/// <param name="currentPath">Accumulated path so far.</param>
+	/// <param name="allPaths">Output list to collect all complete paths.</param>
+	static void FindAllPathsToBoss(MapPoint current, List<MapPoint> currentPath, List<List<MapPoint>> allPaths)
 	{
-		var run = RunManager.Instance.DebugOnlyGetState();
-		var current_coord = run.CurrentMapCoord;
-		MapPoint[] map_points = run.Map.GetAllMapPoints().ToArray<MapPoint>();
-		return map_points.ToList();
-	}
-	private static MapPoint[] GetCurrentActMap()
-	{	
-		var run = RunManager.Instance.DebugOnlyGetState();
-		MapPoint[] map_points = run.Map.GetAllMapPoints().ToArray<MapPoint>();
-		if (map_points.Length == 0)
+		if (current == null) return;
+
+		// Add current point to path
+		currentPath.Add(current);
+
+		// Check if we reached the Boss
+		if (current.PointType == MapPointType.Boss)
 		{
-			Log.Info("[MCP] No map points found!");
+			// Found a path to Boss, save a copy
+			allPaths.Add(new List<MapPoint>(currentPath));
 		}
-		foreach(MapPoint point in map_points)
-		{ 
-			Log.Info(point.ToString());
+		else if (current.Children != null && current.Children.Count > 0)
+		{
+			// Continue DFS on children
+			foreach (var child in current.Children)
+			{
+				FindAllPathsToBoss(child, currentPath, allPaths);
+			}
 		}
 
-		Log.Info($"[MCP] got map with {map_points.Length} points");
-		return map_points;
+		// Backtrack: remove current point from path
+		currentPath.RemoveAt(currentPath.Count - 1);
+	}
+	
+	/// <summary>
+	/// Danger score for the safety path: higher = safer.
+	/// Counts fights (Monster=1, Unknown=1, Elite=3).
+	/// </summary>
+	private static int ScoreSafety(List<MapPoint> path)
+	{
+		int score = 0;
+		foreach (var p in path)
+		{
+			switch (p.PointType)
+			{
+				case MapPointType.RestSite: score += 1; break;
+				case MapPointType.Treasure: score += 1; break;
+				case MapPointType.Shop: score += 1; break;
+				case MapPointType.Monster: score -= 1; break;
+				case MapPointType.Elite:   score -= 3; break;
+				case MapPointType.Unknown: score += 0; break;
+			}
+		}
+		return score;
+	}
+
+	/// <summary>
+	/// Reward score for the aggressive path: higher = more rewards.
+	/// Weights: Elite=5, Treasure=3, Monster=2, Unknown=2.
+	/// </summary>
+	private static int ScoreAggressive(List<MapPoint> path)
+	{
+		int score = 0;
+		foreach (var p in path)
+		{
+			switch (p.PointType)
+			{
+				case MapPointType.RestSite: score += 1; break;
+				case MapPointType.Treasure: score += 1; break;
+				case MapPointType.Shop: score += 1; break;
+				case MapPointType.Monster: score += 2; break;
+				case MapPointType.Elite:   score += 3; break;
+				case MapPointType.Unknown: score += 2; break;
+			}
+		}
+		return score;
+	}
+
+	private static object FormatPath(List<MapPoint> path, string label)
+	{
+		return new
+		{
+			Label = label,
+			Length = path.Count,
+			Nodes = path.Select(p => new { Type = p.PointType.ToString(), Coord = p.coord }).ToList(),
+		};
+	}
+
+	private static object GetCurrentActMap()
+	{
+		ComputePaths();
+		if (_cachedSafestPath == null || _cachedAggressivePath == null)
+			return new { Error = "No map available" };
+
+		RequestHighlightOnMapOpen();
+
+		return new
+		{
+			SafestPath = FormatPath(_cachedSafestPath.Skip(1).ToList(), "Safest (fewest fights)"),
+			MostAggressivePath = FormatPath(_cachedAggressivePath.Skip(1).ToList(), "Most aggressive (max rewards)"),
+		};
+	}
+
+	private static void ComputePaths()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var startPoint = run.CurrentMapPoint ?? run.Map?.StartingMapPoint;
+		if (startPoint == null)
+		{
+			Log.Info("[MCP] No start point in map search");
+			return;
+		}
+
+		var currentPath = new List<MapPoint>();
+		var allPaths = new List<List<MapPoint>>();
+		FindAllPathsToBoss(startPoint, currentPath, allPaths);
+
+		if (allPaths.Count == 0) return;
+
+		_cachedSafestPath = allPaths.OrderByDescending(ScoreSafety).First();
+		_cachedAggressivePath = allPaths.OrderByDescending(ScoreAggressive).First();
+
+		Log.Info($"[MCP] Total paths: {allPaths.Count}");
+		Log.Info($"[MCP] Safest: {string.Join("->", _cachedSafestPath.Skip(1).Select(p => p.PointType.ToString()))}");
+		Log.Info($"[MCP] Aggressive: {string.Join("->", _cachedAggressivePath.Skip(1).Select(p => p.PointType.ToString()))}");
+	}
+
+	private static void InitializeReflection()
+	{
+		try
+		{
+			_pathsField = typeof(NMapScreen).GetField("_paths", BindingFlags.NonPublic | BindingFlags.Instance);
+			_reflectionInitialized = _pathsField != null;
+			Log.Info(_reflectionInitialized ? "[MCP] Reflection initialized" : "[MCP] Reflection failed: _paths not found");
+		}
+		catch (Exception ex)
+		{
+			Log.Error($"[MCP] Reflection error: {ex.Message}");
+		}
+	}
+
+	private static void UpdateAndRequestHighlight()
+	{
+		ComputePaths();
+		RequestHighlightOnMapOpen();
+	}
+
+	private static void RequestHighlightOnMapOpen()
+	{
+		var mapScreen = NMapScreen.Instance;
+		if (mapScreen != null && mapScreen.IsOpen)
+		{
+			HighlightPaths();
+			return;
+		}
+
+		_pendingHighlight = true;
+		if (mapScreen != null)
+			mapScreen.Opened += OnMapScreenOpened;
+	}
+
+	private static void OnMapScreenOpened()
+	{
+		if (!_pendingHighlight) return;
+		_pendingHighlight = false;
+		var mapScreen = NMapScreen.Instance;
+		if (mapScreen != null)
+			mapScreen.Opened -= OnMapScreenOpened;
+		HighlightPaths();
+	}
+
+	private static HashSet<(MapCoord, MapCoord)> GetPathSegments(List<MapPoint>? path)
+	{
+		var segments = new HashSet<(MapCoord, MapCoord)>();
+		if (path == null || path.Count < 2) return segments;
+		for (int i = 0; i < path.Count - 1; i++)
+			segments.Add((path[i].coord, path[i + 1].coord));
+		return segments;
+	}
+
+	private static void HighlightPaths()
+	{
+		if (!_reflectionInitialized) return;
+		var mapScreen = NMapScreen.Instance;
+		if (mapScreen == null || !mapScreen.IsOpen) return;
+
+		ClearPathHighlighting();
+
+		var paths = _pathsField!.GetValue(mapScreen) as IDictionary;
+		if (paths == null) return;
+
+		var safestSegs = GetPathSegments(_cachedSafestPath);
+		var aggressiveSegs = GetPathSegments(_cachedAggressivePath);
+		var sharedSegs = new HashSet<(MapCoord, MapCoord)>(safestSegs);
+		sharedSegs.IntersectWith(aggressiveSegs);
+
+		foreach (var seg in aggressiveSegs.Except(sharedSegs))
+			ApplySegmentHighlight(paths, seg, AggressiveColor);
+		foreach (var seg in safestSegs.Except(sharedSegs))
+			ApplySegmentHighlight(paths, seg, SafestColor);
+		foreach (var seg in sharedSegs)
+			ApplySegmentHighlight(paths, seg, SharedColor);
+	}
+
+	private static void ApplySegmentHighlight(IDictionary paths, (MapCoord, MapCoord) seg, Color color)
+	{
+		TryHighlightSegment(paths, seg, color);
+		TryHighlightSegment(paths, (seg.Item2, seg.Item1), color);
+	}
+
+	private static void TryHighlightSegment(IDictionary paths, (MapCoord, MapCoord) key, Color color)
+	{
+		if (!paths.Contains(key)) return;
+		if (paths[key] is not IReadOnlyList<TextureRect> ticks) return;
+		foreach (var tick in ticks)
+		{
+			if (tick == null || !GodotObject.IsInstanceValid(tick)) continue;
+			if (!_originalTickProps.ContainsKey(tick))
+				_originalTickProps[tick] = (tick.Modulate, tick.Scale);
+			tick.Modulate = color;
+			tick.Scale = new Vector2(1.4f, 1.4f);
+		}
+	}
+
+	private static void ClearPathHighlighting()
+	{
+		var toRemove = new List<TextureRect>();
+		foreach (var kvp in _originalTickProps)
+		{
+			if (kvp.Key != null && GodotObject.IsInstanceValid(kvp.Key))
+			{
+				kvp.Key.Modulate = kvp.Value.color;
+				kvp.Key.Scale = kvp.Value.scale;
+			}
+			else
+			{
+				toRemove.Add(kvp.Key);
+			}
+		}
+		foreach (var tick in toRemove)
+			_originalTickProps.Remove(tick);
+		_originalTickProps.Clear();
 	}
 	
 	
