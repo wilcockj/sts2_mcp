@@ -1,26 +1,46 @@
+#nullable enable
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Net;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Context;
+using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Entities.Players;
 using MegaCrit.Sts2.Core.Map;
+using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
+using MegaCrit.Sts2.Core.MonsterMoves.Intents;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
+using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Runs;
 
 namespace STS2MCP;
+
+public class PlayerCardsData
+{
+	public List<SerializableCard> Draw { get; set; } = new();
+	public List<SerializableCard> Hand { get; set; } = new();
+	public List<SerializableCard> Discard { get; set; } = new();
+	public List<SerializableCard> Exhaust { get; set; } = new();
+	public List<SerializableCard> Play { get; set; } = new();
+	public List<SerializableCard> Deck { get; set; } = new();
+}
 
 public static class MCPEntry
 {
@@ -112,7 +132,7 @@ public static class MCPInitializer
 	
 	private static void ServerLoop()
 	{
-		while (_listener.IsListening)
+		while (_listener!.IsListening)
 		{
 			try
 			{
@@ -126,14 +146,6 @@ public static class MCPInitializer
 		}
 	}
 
-	private static void SendText(HttpListenerResponse response, string text)
-	{
-		response.StatusCode = 200;
-		response.ContentType = "text/plain";
-		response.OutputStream.Write(Encoding.UTF8.GetBytes(text), 0, text.Length);
-		response.Close();
-	}
-
 	private static void HandleRequest(HttpListenerContext context)
 	{
 		try
@@ -144,15 +156,20 @@ public static class MCPInitializer
 			response.Headers.Add("Access-Control-Allow-Methods", "GET, POST");
 			response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
-			string path = request.Url?.AbsolutePath ?? "/";
+			string path = request.Url?.AbsolutePath.TrimEnd('/') ?? "/";
+			string method = request.HttpMethod;
 
-			Log.Info($"[MCP] Request path: {path}");
+			Log.Info($"[MCP API] {method} {path}");
 			
-			if (request.HttpMethod == "GET" && path == "/health")
+			string[] segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+			
+			if (segments.Length == 0)
 			{
-				var t = RunOnMainThread(() => GetPlayerHealth());
-				var health = t.GetAwaiter().GetResult();
-				SendText(response, $"Players health is {health}");
+				SendJson(response, new { message = "Slay the Spire 2 API v1" });
+			}
+			else if (segments[0].Equals("api", StringComparison.OrdinalIgnoreCase))
+			{
+				HandleApiRequest(segments, method, response);
 			}
 			else if (request.HttpMethod == "GET" && path == "/map")
 			{
@@ -167,23 +184,190 @@ public static class MCPInitializer
 			}
 		} catch (Exception e)
 		{
-			Log.Error($"[MCP] Server failed: {e}");
+			Log.Error($"[MCP] HTTP Server failed: {e}");
 		}
 	}
-	private static int GetPlayerHealth()
+	
+	private static void SendJson(HttpListenerResponse response, object obj)
 	{
-		var run = RunManager.Instance.DebugOnlyGetState();
-		var player = LocalContext.GetMe(run);
-		var serializable_player = player.ToSerializable();
-		return serializable_player.CurrentHp;
+		response.ContentType = "application/json";
+		// Serialize with indentation
+		string json = JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true });
+		byte[] buffer = System.Text.Encoding.UTF8.GetBytes(json);
+		response.ContentLength64 = buffer.Length;
+		response.OutputStream.Write(buffer, 0, buffer.Length);
+		response.OutputStream.Close();
 	}
 
-	private static List<SerializableCard> GetPlayerCards()
+	private static void HandleApiRequest(string[] segments, string method, HttpListenerResponse response)
+	{
+		// Expect at least: /api/v1/...
+		if (segments.Length < 2)
+		{
+			response.StatusCode = 404;
+			response.Close();
+			return;
+		}
+
+		string version = segments[1];
+		if (!version.Equals("v1", StringComparison.OrdinalIgnoreCase))
+		{
+			response.StatusCode = 404;
+			response.Close();
+			return;
+		}
+		
+		// Handle resources after /api/v1/
+		if (segments.Length >= 3)
+		{
+			string resource = segments[2].ToLower();
+
+			switch (resource)
+			{
+				case "player":
+					if (method == "GET")
+					{
+						try
+						{
+							// Gather player info
+							var playerData = RunOnMainThread(() => new
+								{
+									Health = GetPlayerHealth(),
+									Cards = GetPlayerCards(),
+									Gold = GetPlayerGold(),
+									Energy = GetPlayerEnergy(),
+									Relics = GetPlayerRelics(),
+								}
+							);
+
+							SendJson(response, playerData);
+						}
+						catch (Exception e)
+						{
+							Log.Error($"[MCP] Failed to get player: {e}");
+							SendJson(response, new { message = "Player data is not available yet" });
+						}
+					}
+					else
+					{
+						response.StatusCode = 405; // Method not allowed
+						response.Close();
+					}
+					break;
+				
+				case "enemies":
+					if (method == "GET")
+					{
+						try
+						{
+							var enemyData = RunOnMainThread(() => GetEnemyInfo());
+							
+							SendJson(response, enemyData);
+						}
+						catch (Exception e) {
+							Log.Error($"[MCP] Failed to get enemies: {e}");
+							SendJson(response, new { message = "Enemy data is not available yet" });
+						}
+					}
+					break;
+				
+				default:
+					response.StatusCode = 404;
+					response.Close();
+					break;
+			}
+		}
+		else
+		{
+			response.StatusCode = 404;
+			response.Close();
+		}
+	}
+
+	private static object GetEnemyInfo()
+	{
+		var combatState = CombatManager.Instance.DebugOnlyGetState();
+		var enemiesData = new List<object>();
+
+		if (combatState?.Enemies == null || combatState.Enemies.Count == 0)
+			return enemiesData; // empty list if no enemies
+
+		foreach (var enemy in combatState.Enemies)
+		{
+			// Gather all intents for this enemy
+			var intents = new List<object>();
+			var powers = new List<object>();
+			if (enemy.Monster?.NextMove?.Intents != null)
+			{
+				foreach (var intent in enemy.Monster.NextMove.Intents)
+				{
+					intents.Add(new
+					{
+						Label = intent
+							.GetIntentLabel(enemy.CombatState.PlayerCreatures, enemy)
+							.GetFormattedText(),
+						Type = intent.IntentType.ToString(),
+					});
+				}
+				
+				foreach (var power in enemy.Powers)
+				{
+					powers.Add(new
+					{
+						Type = power.Type.ToString(),
+						Amount = power.Amount,
+						Desc = LocManager.Instance.GetTable(power.Description.LocTable).GetRawText(power.Description.LocEntryKey),
+					});
+				}
+			}
+
+			enemiesData.Add(new
+			{
+				Name = enemy.Name,
+				CurrentHP = enemy.CurrentHp,
+				MaxHp = enemy.MaxHp,
+				CurrentBlock = enemy.Block,
+				IsStunned = enemy.IsStunned,
+				Intents = intents,
+				Powers = powers,
+			});
+		}
+
+		return enemiesData;
+	}
+
+	private static object GetPlayerHealth()
 	{
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var player = LocalContext.GetMe(run);
-		var serializable_player = player.ToSerializable();
-		return serializable_player.Deck;
+		return new
+		{
+			CurrentHP = player.Creature.CurrentHp,
+			MaxHP = player.Creature.MaxHp,
+			CurrentBlock = player.Creature.Block,
+		};
+	}
+	
+	private static object GetPlayerRelics()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		return new
+		{
+			Relics = player.ToSerializable().Relics,
+		};
+	}
+
+	private static object GetPlayerEnergy()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+
+		return new
+		{
+			CurrentEnergy = player.PlayerCombatState.Energy,
+			MaxEnergy = player.PlayerCombatState.MaxEnergy,
+		};
 	}
 
 	private static List<MapPoint> GetCurrentPathsToBoss(MapPoint current_point,List<MapPoint> current_path, List<List<MapPoint>> every_path)
@@ -210,13 +394,54 @@ public static class MCPInitializer
 	}
 	
 }
-
-[HarmonyPatch(typeof(Player), "PopulateStartingDeck")]
-public static class PatchPopulateStartingDeck
-{
-	[HarmonyPostfix]
-	public static void Postfix(Player __instance)
+	
+	private static PlayerCardsData GetPlayerCards()
 	{
-		Log.Warn("[MCP] Deck populated!");
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		
+		var cardsData = new PlayerCardsData();
+		
+		foreach (CardPile pile in player.Piles)
+		{
+			if (pile?.Cards == null) continue;
+
+			foreach (CardModel model in pile.Cards)
+			{
+				var serializableCard = model.ToSerializable();
+
+				switch (pile.Type)
+				{
+					case PileType.Hand:
+						cardsData.Hand.Add(serializableCard);
+						break;
+					case PileType.Draw:
+						cardsData.Draw.Add(serializableCard);
+						break;
+					case PileType.Discard:
+						cardsData.Discard.Add(serializableCard);
+						break;
+					case PileType.Exhaust:
+						cardsData.Exhaust.Add(serializableCard);
+						break;
+					case PileType.Play:
+						cardsData.Play.Add(serializableCard);
+						break;
+					case PileType.Deck:
+						cardsData.Deck.Add(serializableCard);
+						break;
+				}
+			}
+		}
+		
+		return cardsData;
+	}
+
+	private static int GetPlayerGold()
+	{
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		var serializablePlayer = player!.ToSerializable();
+		return serializablePlayer.Gold;
 	}
 }
