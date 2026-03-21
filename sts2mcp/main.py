@@ -44,7 +44,18 @@ def sts2_get_map():
         return response.json()
     except Exception as e:
         return f"Failed to get map: {e}"
-
+        
+@mcp.tool
+def get_to_character_select():
+    """Gets you to the character select screen so you can
+    choose your chracter and then start the game"""
+    try:
+        response = requests.get(f"http://localhost:{PORT}/api/v1/enter_char_select", timeout=2)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to get to chracter select screen: {e}"
+        
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()

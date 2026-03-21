@@ -27,10 +27,13 @@ using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Modding;
 using MegaCrit.Sts2.Core.MonsterMoves.Intents;
+using MegaCrit.Sts2.Core.Nodes;
+using MegaCrit.Sts2.Core.Nodes.Screens.CharacterSelect;
 using MegaCrit.Sts2.Core.Random;
 using MegaCrit.Sts2.Core.Runs;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Runs;
+using MegaCrit.Sts2.Core.Nodes.Screens.MainMenu;
 
 namespace STS2MCP;
 
@@ -297,6 +300,22 @@ public static class MCPInitializer
 						catch (Exception e) {
 							Log.Error($"[MCP] Failed to get map paths: {e}");
 							SendJson(response, new { message = "Map data is not available yet" });
+						}
+					}
+					break;
+				case "enter_char_select":
+					if (method == "GET")
+					{
+						try
+						{
+							
+							var t = RunOnMainThread(() => StartStandardGame());
+							var standard_game = t.GetAwaiter().GetResult();
+							SendJson(response, new { message = "Got to character select for standard game"});
+						}
+						catch (Exception e) {
+							Log.Error($"[MCP] Failed to get character select screen: {e}");
+							SendJson(response, new { message = "Character screen could not be navigated to" });
 						}
 					}
 					break;
@@ -658,7 +677,25 @@ public static class MCPInitializer
 			_originalTickProps.Remove(tick);
 		_originalTickProps.Clear();
 	}
+
+	private static object StartStandardGame()
+	{
+		if (NGame.Instance.MainMenu == null)
+		{
+			return new {message = "not on main menu"};
+		}
+		// we are on the main menu
+		// select the game screen
+		var submenu = NGame.Instance.MainMenu.OpenSingleplayerSubmenu();
+		var method = typeof(NSingleplayerSubmenu).GetMethod(
+			"OpenCharacterSelect",
+			BindingFlags.NonPublic | BindingFlags.Instance);
+
+		method?.Invoke(submenu, new object?[] { null });
 	
+		Log.Info("got to character select screen");
+		return new { message = "opened single player submenu" };
+	}
 	
 	private static PlayerCardsData GetPlayerCards()
 	{
