@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Entities.Cards;
+using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Runs;
@@ -18,6 +20,7 @@ public static partial class Mod
 		if (combatState?.Enemies == null || combatState.Enemies.Count == 0)
 			return enemiesData; // empty list if no enemies
 
+		var targetIndex = 0;
 		foreach (var enemy in combatState.Enemies)
 		{
 			// Gather all intents for this enemy
@@ -56,10 +59,23 @@ public static partial class Mod
 				IsStunned = enemy.IsStunned,
 				Intents = intents,
 				Powers = powers,
+				Index = targetIndex++,
 			});
 		}
 
 		return enemiesData;
+	}
+	private static bool TryGetTargetCreature(int index,out Creature creature)
+	{
+		var combatState = CombatManager.Instance.DebugOnlyGetState();
+		var enemies = combatState.Enemies.ToList();
+		if (index < 0 || enemies.Count >= index)
+		{
+			creature = null!;
+			return false;
+		}
+		creature = enemies[index];
+		return true;
 	}
 
 	private static object GetPlayerHealth()
@@ -108,6 +124,7 @@ public static partial class Mod
 		{
 			if (pile?.Cards == null) continue;
 
+			var cardIndex = 0;
 			foreach (CardModel model in pile.Cards)
 			{
 
@@ -116,6 +133,7 @@ public static partial class Mod
 					Description = model.GetDescriptionForPile(pile.Type),
 					Title = model.Title,
 					EnergyCost = model.EnergyCost.CostsX ? "X" : model.EnergyCost.Canonical.ToString(),
+					CardIndex = cardIndex++,
 				};
 
 				var key = pile.Type.ToString();
