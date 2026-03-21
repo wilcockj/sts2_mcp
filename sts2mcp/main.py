@@ -6,6 +6,24 @@ PORT = 15527
 mcp = FastMCP("STS2 MCP")
 
 @mcp.tool
+def play_card(card_index: int, target_index: int | None = None):
+    """Play a card."""
+    url = f"http://localhost:{PORT}/api/v1/playcard"
+    try:
+        payload = {
+            "card_index": card_index
+        }
+
+        if target_index is not None:
+            payload["target_index"] = target_index
+            
+        response = requests.post(url, timeout=2, json=payload)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Failed to play card: {e}"
+
+@mcp.tool
 def player_state():
     """Gets the player's current state"""
     url = f"http://localhost:{PORT}/api/v1/player"

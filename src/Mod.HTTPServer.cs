@@ -1,10 +1,17 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using System.Text.Json;
 using System.Threading;
 using MegaCrit.Sts2.Core.Logging;
 
 namespace STS2MCP;
+
+public class PlayCardRequest
+{
+	public int card_index { get; set; }
+	public int? target_index { get; set; }
+}
 
 public static partial class Mod
 {
@@ -47,11 +54,7 @@ public static partial class Mod
 			}
 			else if (segments[0].Equals("api", StringComparison.OrdinalIgnoreCase))
 			{
-				HandleApiRequest(segments, method, response);
-			}
-			else if (request.HttpMethod == "GET" && path == "/map")
-			{
-
+				HandleApiRequest(segments, method, request, response);
 			}
 			else
 			{
@@ -75,7 +78,7 @@ public static partial class Mod
 		response.OutputStream.Close();
 	}
 
-	private static void HandleApiRequest(string[] segments, string method, HttpListenerResponse response)
+	private static void HandleApiRequest(string[] segments, string method, HttpListenerRequest request, HttpListenerResponse response)
 	{
 		// Expect at least: /api/v1/...
 		if (segments.Length < 2)
@@ -100,6 +103,27 @@ public static partial class Mod
 
 			switch (resource)
 			{
+				case "playcard":
+					if (method == "POST")
+					{
+						using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+						{
+							string body = reader.ReadToEnd();
+							Log.Info($"[MCP] Body: {body}");
+							var data = JsonSerializer.Deserialize<PlayCardRequest>(body);
+							Log.Info($"[MCP] Sending playCard request: card={data.card_index} enemy={data.target_index?.ToString() ?? "none"}");
+						}
+
+						response.Close();
+					}
+					else
+					{
+						Log.Info("[MCP] Sending invalid method for playCard");
+						response.StatusCode = 405; // Method not allowed
+						response.Close();
+					}
+					break;
+				
 				case "player":
 					if (method == "GET")
 					{
