@@ -42,6 +42,7 @@ public class CardData
 	public required string Title { get; set; }
 	public required string Description { get; set; }
 	public required string EnergyCost { get; set; }
+	public required int CardIndex { get; set; }
 }
 
 public static class MCPEntry
