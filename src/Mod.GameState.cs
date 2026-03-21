@@ -6,6 +6,7 @@ using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.GameActions;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.Localization;
+using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Runs;
 
@@ -66,11 +67,44 @@ public static partial class Mod
 
 		return enemiesData;
 	}
+
+	private static object PlayCardAction(PlayCardRequest pcr)
+	{
+		Creature? creature = null;
+		if (pcr.target_index != null)
+		{
+			if (!TryGetTargetCreature(pcr.target_index ?? 0, out creature))
+			{
+				return new { Success = false, Message = "target creature index out of bounds" };
+			}
+		}
+
+
+		var run = RunManager.Instance.DebugOnlyGetState();
+		var player = LocalContext.GetMe(run);
+		foreach (CardPile pile in player.Piles)
+		{
+			if (pile.Type != PileType.Hand)
+			{
+				continue;
+			}
+
+
+			if (pcr.card_index < 0 || pcr.card_index >= pile.Cards.Count)
+			{
+				return new { Success = false, Message = "card index out of bounds" };
+			}
+			// Play the card via the action queue (same path as the game UI)
+			RunManager.Instance.ActionQueueSynchronizer.RequestEnqueue(new PlayCardAction(pile.Cards[pcr.card_index], creature));
+			break;
+		}
+		return new { Success = true };
+	}
 	private static bool TryGetTargetCreature(int index,out Creature creature)
 	{
 		var combatState = CombatManager.Instance.DebugOnlyGetState();
 		var enemies = combatState.Enemies.ToList();
-		if (index < 0 || enemies.Count >= index)
+		if (index < 0 || enemies.Count <= index)
 		{
 			creature = null!;
 			return false;
