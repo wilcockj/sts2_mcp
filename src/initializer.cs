@@ -13,6 +13,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Collections;
 using System.Reflection;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Godot;
 using MegaCrit.Sts2.Core.Nodes.Screens.Map;
@@ -34,14 +35,12 @@ using MegaCrit.Sts2.Core.Saves.Runs;
 
 namespace STS2MCP;
 
-public class PlayerCardsData
+[Serializable]
+public class CardData
 {
-	public List<SerializableCard> Draw { get; set; } = new();
-	public List<SerializableCard> Hand { get; set; } = new();
-	public List<SerializableCard> Discard { get; set; } = new();
-	public List<SerializableCard> Exhaust { get; set; } = new();
-	public List<SerializableCard> Play { get; set; } = new();
-	public List<SerializableCard> Deck { get; set; } = new();
+	public required string Title { get; set; }
+	public required string Description { get; set; }
+	public required string EnergyCost { get; set; }
 }
 
 public static class MCPEntry
@@ -253,7 +252,7 @@ public static class MCPInitializer
 									Energy = GetPlayerEnergy(),
 									Relics = GetPlayerRelics(),
 								}
-							);
+							).GetAwaiter().GetResult();
 
 							SendJson(response, playerData);
 						}
@@ -275,7 +274,7 @@ public static class MCPInitializer
 					{
 						try
 						{
-							var enemyData = RunOnMainThread(() => GetEnemyInfo());
+							var enemyData = RunOnMainThread(GetEnemyInfo).GetAwaiter().GetResult();
 							
 							SendJson(response, enemyData);
 						}
@@ -290,8 +289,7 @@ public static class MCPInitializer
 					{
 						try
 						{
-							var t = RunOnMainThread(() => GetCurrentActMap());
-							var mapData = t.GetAwaiter().GetResult();
+							var mapData = RunOnMainThread(GetCurrentActMap).GetAwaiter().GetResult();;
 							SendJson(response, mapData);
 						}
 						catch (Exception e) {
@@ -643,12 +641,13 @@ public static class MCPInitializer
 	}
 	
 	
-	private static PlayerCardsData GetPlayerCards()
+	private static Dictionary<string, List<CardData>> GetPlayerCards()
 	{
 		var run = RunManager.Instance.DebugOnlyGetState();
 		var player = LocalContext.GetMe(run);
-		
-		var cardsData = new PlayerCardsData();
+
+		//                             pile    card list
+		var cardsData = new Dictionary<string, List<CardData>>();
 		
 		foreach (CardPile pile in player.Piles)
 		{
@@ -656,29 +655,21 @@ public static class MCPInitializer
 
 			foreach (CardModel model in pile.Cards)
 			{
-				var serializableCard = model.ToSerializable();
 
-				switch (pile.Type)
+				var cardData = new CardData()
 				{
-					case PileType.Hand:
-						cardsData.Hand.Add(serializableCard);
-						break;
-					case PileType.Draw:
-						cardsData.Draw.Add(serializableCard);
-						break;
-					case PileType.Discard:
-						cardsData.Discard.Add(serializableCard);
-						break;
-					case PileType.Exhaust:
-						cardsData.Exhaust.Add(serializableCard);
-						break;
-					case PileType.Play:
-						cardsData.Play.Add(serializableCard);
-						break;
-					case PileType.Deck:
-						cardsData.Deck.Add(serializableCard);
-						break;
+					Description = model.GetDescriptionForPile(pile.Type),
+					Title = model.Title,
+					EnergyCost = model.EnergyCost.CostsX ? "X" : model.EnergyCost.Canonical.ToString(),
+				};
+				Log.Info($"[MCP] [{pile.Type.ToString()}] {cardData.Title} {cardData.EnergyCost}: {cardData.Description}");
+
+				var key = pile.Type.ToString();
+				if (!cardsData.ContainsKey(key))
+				{
+					cardsData[key] = new List<CardData>();
 				}
+				cardsData[key].Add(cardData);
 			}
 		}
 		
