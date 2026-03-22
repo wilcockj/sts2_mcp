@@ -78,8 +78,6 @@ LD_PRELOAD=/lib/libgcc_s.so.1 HARMONY_DEBUG="true" %command% --remote-debug tcp:
 - add control for starting the run and then selecting a character
 - add control for restarting a run
 - control to get what is in the shop currently / choose selection
-- acknowledge for whether the card selected is correct before playing
+- acknowledge for whether the card selected is correct before playing?
 - a way to tell the mcp it is not its turn yet
-- tell model not enough energy to play card so failed
 - need to be able to select cards, for example when a card requires discarding
-- if card didnt play for example card didnt have target but needed we need to return that

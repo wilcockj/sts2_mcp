@@ -116,6 +116,27 @@ public static partial class Mod
 			{
 				return new { Success = false, Message = "card index out of bounds" };
 			}
+
+			var energy = GetPlayerEnergy();
+			var my_card = pile.Cards[pcr.card_index];
+			if (my_card.EnergyCost.Canonical > player.PlayerCombatState.Energy)
+			{
+				Log.Info($"Got cost too high for {my_card.Title}, of {my_card.EnergyCost.Canonical} when had {player.PlayerCombatState.Energy}");
+				return new { Success = false, Message = "Unable to play card, do not have enough energy" };
+			}
+
+			if (creature == null)
+			{
+				// we have no target
+				switch (my_card.TargetType)
+				{
+					// we should have had a target so we need to error
+					case TargetType.AnyPlayer: 
+					case TargetType.AnyEnemy :
+					case TargetType.AnyAlly : return new { Success = false, Message = "Need to select target for card" };
+				}
+			}
+
 			// Play the card via the action queue (same path as the game UI)
 			RunManager.Instance.ActionQueueSynchronizer.RequestEnqueue(new PlayCardAction(pile.Cards[pcr.card_index], creature));
 			break;
